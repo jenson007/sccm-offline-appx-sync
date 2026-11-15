@@ -1,0 +1,113 @@
+#requires -Version 5.1
+#requires -RunAsAdministrator
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string]$RepoBase
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$CsvPath = Join-Path $RepoBase "AppVersions.csv"
+$PackageFolder = Join-Path $RepoBase "AppPackages"
+$PrimaryDepFolder = Join-Path $RepoBase "Dependencies"
+$LegacyDepFolder = Join-Path $PackageFolder "Dependencies"
+
+$scriptRoot = Split-Path -Path $PSCommandPath -Parent
+$logonScript = Join-Path $scriptRoot "Invoke-AppxUserUpdateAtLogon.ps1"
+$registerScript = Join-Path $scriptRoot "Register-AppxLogonUpdater.ps1"
+
+if (-not (Test-Path -LiteralPath $CsvPath)) { throw "CSV fehlt: $CsvPath" }
+if (-not (Test-Path -LiteralPath $PackageFolder)) { throw "Paketordner fehlt: $PackageFolder" }
+if (-not (Test-Path -LiteralPath $logonScript)) { throw "Logon-Skript fehlt: $logonScript" }
+if (-not (Test-Path -LiteralPath $registerScript)) { throw "Register-Skript fehlt: $registerScript" }
+
+[string[]]$DependencyList = @()
+$DepFolder = if (Test-Path -LiteralPath $PrimaryDepFolder) { $PrimaryDepFolder } elseif (Test-Path -LiteralPath $LegacyDepFolder) { $LegacyDepFolder } else { $null }
+if ($DepFolder) {
+    $DependencyList = @(
+        Get-ChildItem -LiteralPath $DepFolder -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -match "^\.(appx|msix|appxbundle|msixbundle)$" } |
+        Select-Object -ExpandProperty FullName
+    )
+}
+
+function Try-ParseVersion {
+    param([string]$Value)
+    try {
+        return [version]$Value
+    }
+    catch {
+        return $null
+    }
+}
+
+function Resolve-PackagePath {
+    param([pscustomobject]$Target)
+
+    if ($Target.FileName) {
+        $byCsv = Join-Path $PackageFolder $Target.FileName
+        if (Test-Path -LiteralPath $byCsv) { return $byCsv }
+    }
+
+    $allPackages = @(Get-ChildItem -LiteralPath $PackageFolder -File -ErrorAction SilentlyContinue | Where-Object {
+            $_.Extension -match "^\.(appx|msix|appxbundle|msixbundle)$"
+        })
+    if (-not $allPackages.Count) { return $null }
+
+    $namePattern = [Regex]::Escape("$($Target.FriendlyName)") -replace "\\ ", ".*"
+    $idPattern = [Regex]::Escape("$($Target.AppId)")
+
+    $candidates = @($allPackages | Where-Object {
+            ($idPattern -and $_.Name -match $idPattern) -or ($namePattern -and $_.Name -match $namePattern)
+        })
+    if (-not $candidates.Count) { return $null }
+
+    $best = $candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    return $best.FullName
+}
+
+$rawTargets = Import-Csv -LiteralPath $CsvPath -Delimiter ";"
+$targets = @($rawTargets | Where-Object {
+        $_.Status -eq "Success" -and
+        $_.PackageName -and
+        (Try-ParseVersion $_.TargetVersion)
+    })
+
+if (-not $targets.Count) {
+    throw "Keine verarbeitbaren App-Ziele in der CSV (Status=Success + PackageName + valide TargetVersion)."
+}
+
+$provPackages = @(Get-AppxProvisionedPackage -Online)
+
+foreach ($app in $targets) {
+    $targetVersion = Try-ParseVersion $app.TargetVersion
+    if (-not $targetVersion) { continue }
+
+    $pkgPath = Resolve-PackagePath -Target $app
+    if (-not $pkgPath) {
+        Write-Warning "Kein Paket gefunden fuer '$($app.FriendlyName)' (AppId=$($app.AppId))."
+        continue
+    }
+
+    $currentProv = $provPackages | Where-Object { $_.DisplayName -eq $app.PackageName } | Select-Object -First 1
+    $needsProvision = $true
+    if ($currentProv) {
+        $currentVersion = Try-ParseVersion $currentProv.Version
+        if ($currentVersion -and $currentVersion -ge $targetVersion) {
+            $needsProvision = $false
+        }
+    }
+
+    if ($needsProvision) {
+        Add-AppxProvisionedPackage -Online -PackagePath $pkgPath -DependencyPackagePath $DependencyList -SkipLicense -ErrorAction Stop | Out-Null
+    }
+}
+
+# Logon-Mechanismus registrieren: bestehende Benutzerprofile erhalten das Update
+# beim naechsten Logon im Benutzerkontext; neue Profile ueber Provisioning.
+& $registerScript -RepoBase $RepoBase -LogonScriptPath $logonScript
+
+Write-Output "Client-Deployment abgeschlossen. Provisioning ausgefuehrt und Logon-Mechanismus registriert."
