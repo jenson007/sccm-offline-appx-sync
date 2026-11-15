@@ -9,8 +9,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$ScriptVersion = "1.1.0"
+$ExpectedCsvSchemaVersion = "2.0"
 
 $CsvPath = Join-Path $RepoBase "AppVersions.csv"
+$MetadataPath = Join-Path $RepoBase "SolutionMetadata.json"
 $PackageFolder = Join-Path $RepoBase "AppPackages"
 $PrimaryDepFolder = Join-Path $RepoBase "Dependencies"
 $LegacyDepFolder = Join-Path $PackageFolder "Dependencies"
@@ -20,9 +23,20 @@ $logonScript = Join-Path $scriptRoot "Invoke-AppxUserUpdateAtLogon.ps1"
 $registerScript = Join-Path $scriptRoot "Register-AppxLogonUpdater.ps1"
 
 if (-not (Test-Path -LiteralPath $CsvPath)) { throw "CSV fehlt: $CsvPath" }
+if (-not (Test-Path -LiteralPath $MetadataPath)) { throw "Metadaten fehlen: $MetadataPath" }
 if (-not (Test-Path -LiteralPath $PackageFolder)) { throw "Paketordner fehlt: $PackageFolder" }
 if (-not (Test-Path -LiteralPath $logonScript)) { throw "Logon-Skript fehlt: $logonScript" }
 if (-not (Test-Path -LiteralPath $registerScript)) { throw "Register-Skript fehlt: $registerScript" }
+
+$metadata = Get-Content -LiteralPath $MetadataPath -Raw | ConvertFrom-Json
+if (-not $metadata.csvSchemaVersion) {
+    throw "Metadaten ungueltig: csvSchemaVersion fehlt in $MetadataPath."
+}
+if ("$($metadata.csvSchemaVersion)" -ne $ExpectedCsvSchemaVersion) {
+    throw "Inkompatibles CSV-Schema. Erwartet=$ExpectedCsvSchemaVersion, gefunden=$($metadata.csvSchemaVersion)."
+}
+
+Write-Output "Deploy-AppxOfflineClient v$ScriptVersion gestartet (Solution=$($metadata.solutionVersion), CSV-Schema=$($metadata.csvSchemaVersion))."
 
 [string[]]$DependencyList = @()
 $DepFolder = if (Test-Path -LiteralPath $PrimaryDepFolder) { $PrimaryDepFolder } elseif (Test-Path -LiteralPath $LegacyDepFolder) { $LegacyDepFolder } else { $null }
@@ -73,6 +87,7 @@ $rawTargets = Import-Csv -LiteralPath $CsvPath -Delimiter ";"
 $targets = @($rawTargets | Where-Object {
         $_.Status -eq "Success" -and
         $_.PackageName -and
+        $_.CsvSchemaVersion -eq $ExpectedCsvSchemaVersion -and
         (Try-ParseVersion $_.TargetVersion)
     })
 
@@ -110,4 +125,4 @@ foreach ($app in $targets) {
 # beim naechsten Logon im Benutzerkontext; neue Profile ueber Provisioning.
 & $registerScript -RepoBase $RepoBase -LogonScriptPath $logonScript
 
-Write-Output "Client-Deployment abgeschlossen. Provisioning ausgefuehrt und Logon-Mechanismus registriert."
+Write-Output "Client-Deployment abgeschlossen (Script v$ScriptVersion). Provisioning ausgefuehrt und Logon-Mechanismus registriert."

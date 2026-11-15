@@ -1,0 +1,11 @@
+{
+  "solutionVersion": "1.1.0",
+  "csvSchemaVersion": "2.0",
+  "generatedAt": "2026-11-15T10:59:00+01:00",
+  "scripts": {
+    "sync": "1.1.0",
+    "deployClient": "1.1.0",
+    "registerLogon": "1.1.0",
+    "invokeLogon": "1.1.0"
+  }
+}

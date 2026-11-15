@@ -17,6 +17,9 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$ScriptVersion = "1.1.0"
+$SolutionVersion = "1.1.0"
+$CsvSchemaVersion = "2.0"
 
 # ==============================================================================
 # --- PROXY KONFIGURATION ---
@@ -29,6 +32,7 @@ $PackageFolder = Join-Path $RepoBase "AppPackages"
 $DepFolder     = Join-Path $RepoBase "Dependencies"
 $TempFolder    = "C:\ProgramData\SWP\Update Appx\Temp"
 $CsvPath       = Join-Path $RepoBase "AppVersions.csv"
+$MetadataPath  = Join-Path $RepoBase "SolutionMetadata.json"
 $LogPath       = Join-Path $TempFolder "winget.log"
 
 $DepPattern = "VCLibs|UI\.Xaml|NET\.Native|Framework|Runtime|Desktop\.AppRuntime"
@@ -120,7 +124,7 @@ function Clear-TempFilesRecursive {
 }
 
 $csvData = New-Object System.Collections.Generic.List[PSObject]
-Write-Host "=== STARTE MASTER SYNC ===" -ForegroundColor Blue
+Write-Host "=== STARTE MASTER SYNC v$ScriptVersion (Solution $SolutionVersion, CSV Schema $CsvSchemaVersion) ===" -ForegroundColor Blue
 
 $sourceArgs = @("source", "update", "--accept-source-agreements")
 if ($UseProxy) { $sourceArgs += @("--proxy", $ProxyServer) }
@@ -209,6 +213,7 @@ foreach ($app in $AppsToProcess) {
             "TargetVersion" = $verString
             "Architecture"  = "x64"
             "Status"        = $status
+            "CsvSchemaVersion" = $CsvSchemaVersion
             "SyncDate"      = (Get-Date -Format "yyyy-MM-dd HH:mm")
         })
 }
@@ -218,6 +223,20 @@ Clear-TempFilesRecursive -Path $TempFolder
 $failedCount = @($csvData | Where-Object { $_.Status -eq "Failed" }).Count
 if ($csvData.Count -gt 0) {
     $csvData | Export-Csv $CsvPath -Delimiter ";" -NoTypeInformation -Encoding UTF8 -Force
+
+    $metadata = [ordered]@{
+        solutionVersion = $SolutionVersion
+        csvSchemaVersion = $CsvSchemaVersion
+        generatedAt = (Get-Date).ToString("o")
+        scripts = [ordered]@{
+            sync = $ScriptVersion
+            deployClient = "1.1.0"
+            registerLogon = "1.1.0"
+            invokeLogon = "1.1.0"
+        }
+    }
+    $metadata | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $MetadataPath -Encoding UTF8
+
     if ($failedCount -eq 0) {
         Write-Host "`n=== SYNC ERFOLGREICH BEENDET ===" -ForegroundColor Green
     }
@@ -225,6 +244,7 @@ if ($csvData.Count -gt 0) {
         Write-Host "`n=== SYNC MIT $failedCount FEHLER(N) BEENDET ===" -ForegroundColor Yellow
     }
     Write-Host "CSV befuellt unter: $CsvPath" -ForegroundColor Gray
+    Write-Host "Metadaten geschrieben nach: $MetadataPath" -ForegroundColor Gray
 }
 else {
     Write-Host "`n=== FEHLER: Keine Daten generiert ===" -ForegroundColor Red

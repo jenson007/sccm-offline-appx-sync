@@ -3,12 +3,24 @@
 Diese Loesung aktualisiert Store-/AppX-/MSIX-Anwendungen in abgeschirmten
 Umgebungen ueber ein zentrales Repository und SCCM.
 
+## Versionierung
+
+- **Solution Version:** `1.1.0` (in `SolutionMetadata.json`)
+- **CSV-Schema:** `2.0` (in `SolutionMetadata.json` und je CSV-Zeile als
+  `CsvSchemaVersion`)
+- **Script Versionen:** in jedem Skript als `$ScriptVersion`
+
+Client- und Logon-Skript validieren das CSV-Schema gegen
+`SolutionMetadata.json`. Bei Schema-Mismatch bricht das Client-Skript mit klarer
+Meldung ab; das Logon-Skript beendet sich ohne Eingriff.
+
 ## Inhalt
 
 - `scripts/Sync-WingetRepository.ps1`
   - Laedt Pakete per winget, trennt Hauptpakete/Dependencies, schreibt
     `AppVersions.csv`.
   - Temp-Cleanup ist rekursiv (`-Recurse`) umgesetzt.
+  - Schreibt zusaetzlich `SolutionMetadata.json` ins Repository.
 - `scripts/Deploy-AppxOfflineClient.ps1`
   - Liest die CSV, provisioniert erforderliche Pakete systemweit ueber
     `Add-AppxProvisionedPackage`.
@@ -17,8 +29,8 @@ Umgebungen ueber ein zentrales Repository und SCCM.
   - Registriert den Logon-Mechanismus.
 - `scripts/Register-AppxLogonUpdater.ps1`
   - Registriert einen Active-Setup-Eintrag unter HKLM.
-  - Versioniert ueber CSV-Hash, damit bestehende User pro neuer Welle erneut
-    ausfuehren.
+  - Versioniert ueber Solution-Version + CSV-Hash, damit bestehende User pro
+    neuer Welle erneut ausfuehren.
 - `scripts/Invoke-AppxUserUpdateAtLogon.ps1`
   - Laeuft im Benutzerkontext bei Logon.
   - Fuehrt bei Bedarf `Add-AppxPackage` mit Dependencies aus.
@@ -38,7 +50,8 @@ diesen Trigger beim naechsten Anmelden.
 │  ├─ *.msix / *.appx / *.msixbundle / *.appxbundle
 ├─ Dependencies
 │  ├─ *.msix / *.appx / *.msixbundle / *.appxbundle
-└─ AppVersions.csv
+├─ AppVersions.csv
+└─ SolutionMetadata.json
 ```
 
 ## Typischer Ablauf
@@ -70,6 +83,7 @@ Die CSV ist semikolongetrennt und enthaelt diese Felder:
 - `TargetVersion`
 - `Architecture`
 - `Status` (`Success`/`Failed`)
+- `CsvSchemaVersion`
 - `SyncDate`
 
 ## Hinweise

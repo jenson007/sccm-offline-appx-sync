@@ -8,13 +8,30 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$ScriptVersion = "1.1.0"
+$ExpectedCsvSchemaVersion = "2.0"
 
 $CsvPath = Join-Path $RepoBase "AppVersions.csv"
+$MetadataPath = Join-Path $RepoBase "SolutionMetadata.json"
 $PackageFolder = Join-Path $RepoBase "AppPackages"
 $PrimaryDepFolder = Join-Path $RepoBase "Dependencies"
 $LegacyDepFolder = Join-Path $PackageFolder "Dependencies"
 
 if (-not (Test-Path -LiteralPath $CsvPath)) {
+    exit 0
+}
+if (-not (Test-Path -LiteralPath $MetadataPath)) {
+    exit 0
+}
+
+$metadata = $null
+try {
+    $metadata = Get-Content -LiteralPath $MetadataPath -Raw | ConvertFrom-Json
+}
+catch {
+    exit 0
+}
+if ("$($metadata.csvSchemaVersion)" -ne $ExpectedCsvSchemaVersion) {
     exit 0
 }
 
@@ -43,6 +60,7 @@ $targets = @($rawTargets | Where-Object {
         $_.Status -eq "Success" -and
         $_.PackageName -and
         $_.FileName -and
+        $_.CsvSchemaVersion -eq $ExpectedCsvSchemaVersion -and
         (Try-ParseVersion $_.TargetVersion)
     })
 
