@@ -41,14 +41,14 @@ $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $CsvPath
 $verSeed = $hash.Hash.Substring(0, 8)
 $asVersion = "$major,$minor,$([Convert]::ToInt32($verSeed.Substring(0,4),16)),$([Convert]::ToInt32($verSeed.Substring(4,4),16))"
 
-$activeSetupKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\SWP.OfflineAppxUpdater"
+$activeSetupKey = "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\OfflineAppx.UserUpdater"
 if (-not (Test-Path -LiteralPath $activeSetupKey)) {
     New-Item -Path $activeSetupKey -Force | Out-Null
 }
 
 $stub = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$LogonScriptPath`" -RepoBase `"$RepoBase`""
 
-Set-ItemProperty -LiteralPath $activeSetupKey -Name "(Default)" -Value "SWP Offline AppX User Updater" -Type String
+Set-ItemProperty -LiteralPath $activeSetupKey -Name "(Default)" -Value "Offline AppX User Updater" -Type String
 Set-ItemProperty -LiteralPath $activeSetupKey -Name "StubPath" -Value $stub -Type String
 Set-ItemProperty -LiteralPath $activeSetupKey -Name "Version" -Value $asVersion -Type String
 Set-ItemProperty -LiteralPath $activeSetupKey -Name "IsInstalled" -Value 1 -Type DWord

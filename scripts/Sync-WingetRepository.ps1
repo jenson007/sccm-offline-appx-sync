@@ -24,13 +24,13 @@ $CsvSchemaVersion = "2.0"
 # ==============================================================================
 # --- PROXY KONFIGURATION ---
 # ==============================================================================
-$ProxyServer = "http://proxy-trusted.pr4ra.siemens.de:8080"
+$ProxyServer = ""
 
 # --- CONFIGURATION ---
-$RepoBase      = "C:\ProgramData\SWP\Update Appx\Repository"
+$RepoBase      = "C:\ProgramData\OfflineAppx\Repository"
 $PackageFolder = Join-Path $RepoBase "AppPackages"
 $DepFolder     = Join-Path $RepoBase "Dependencies"
-$TempFolder    = "C:\ProgramData\SWP\Update Appx\Temp"
+$TempFolder    = "C:\ProgramData\OfflineAppx\Temp"
 $CsvPath       = Join-Path $RepoBase "AppVersions.csv"
 $MetadataPath  = Join-Path $RepoBase "SolutionMetadata.json"
 $LogPath       = Join-Path $TempFolder "winget.log"
