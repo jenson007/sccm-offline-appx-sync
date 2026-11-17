@@ -26,7 +26,11 @@ Meldung ab; das Logon-Skript beendet sich ohne Eingriff.
     `Add-AppxProvisionedPackage`.
   - Filtert nur `Status=Success` und valide Versionen.
   - Nutzt robuste Paketzuordnung ueber CSV-Felder (`FileName`, `AppId`).
-  - Registriert den Logon-Mechanismus.
+  - Unterstuetzt zwei Modi:
+    - `UpdateWithActiveSetup` (Standard): versionierte Aktualisierung plus
+      Active-Setup-Registrierung.
+    - `LocalReinstall`: lokale Neuinstallation der provisioned Packages ohne
+      Active Setup.
 - `scripts/Register-AppxLogonUpdater.ps1`
   - Registriert einen Active-Setup-Eintrag unter HKLM.
   - Versioniert ueber Solution-Version + CSV-Hash, damit bestehende User pro
@@ -66,6 +70,12 @@ diesen Trigger beim naechsten Anmelden.
 
 ```powershell
 .\scripts\Deploy-AppxOfflineClient.ps1 -RepoBase "\\Server\Share\WindowsAppUpdates"
+```
+
+Alternativ lokale Neuinstallation ohne Active Setup:
+
+```powershell
+.\scripts\Deploy-AppxOfflineClient.ps1 -RepoBase "\\Server\Share\WindowsAppUpdates" -DeploymentMode LocalReinstall
 ```
 
 3. Benutzer erhalten Updates:

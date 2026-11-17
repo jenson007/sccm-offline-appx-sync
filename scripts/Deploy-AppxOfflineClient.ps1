@@ -4,12 +4,16 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$RepoBase
+    [string]$RepoBase,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("UpdateWithActiveSetup", "LocalReinstall")]
+    [string]$DeploymentMode = "UpdateWithActiveSetup"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.1.0"
+$ScriptVersion = "1.2.0"
 $ExpectedCsvSchemaVersion = "2.0"
 
 $CsvPath = Join-Path $RepoBase "AppVersions.csv"
@@ -36,7 +40,7 @@ if ("$($metadata.csvSchemaVersion)" -ne $ExpectedCsvSchemaVersion) {
     throw "Inkompatibles CSV-Schema. Erwartet=$ExpectedCsvSchemaVersion, gefunden=$($metadata.csvSchemaVersion)."
 }
 
-Write-Output "Deploy-AppxOfflineClient v$ScriptVersion gestartet (Solution=$($metadata.solutionVersion), CSV-Schema=$($metadata.csvSchemaVersion))."
+Write-Output "Deploy-AppxOfflineClient v$ScriptVersion gestartet (Solution=$($metadata.solutionVersion), CSV-Schema=$($metadata.csvSchemaVersion), Mode=$DeploymentMode)."
 
 [string[]]$DependencyList = @()
 $DepFolder = if (Test-Path -LiteralPath $PrimaryDepFolder) { $PrimaryDepFolder } elseif (Test-Path -LiteralPath $LegacyDepFolder) { $LegacyDepFolder } else { $null }
@@ -116,13 +120,28 @@ foreach ($app in $targets) {
         }
     }
 
+    if ($DeploymentMode -eq "LocalReinstall") {
+        if ($currentProv) {
+            Remove-AppxProvisionedPackage -Online -PackageName $currentProv.PackageName -ErrorAction Stop | Out-Null
+        }
+        Add-AppxProvisionedPackage -Online -PackagePath $pkgPath -DependencyPackagePath $DependencyList -SkipLicense -ErrorAction Stop | Out-Null
+        continue
+    }
+
     if ($needsProvision) {
         Add-AppxProvisionedPackage -Online -PackagePath $pkgPath -DependencyPackagePath $DependencyList -SkipLicense -ErrorAction Stop | Out-Null
     }
 }
 
-# Logon-Mechanismus registrieren: bestehende Benutzerprofile erhalten das Update
-# beim naechsten Logon im Benutzerkontext; neue Profile ueber Provisioning.
-& $registerScript -RepoBase $RepoBase -LogonScriptPath $logonScript
+if ($DeploymentMode -eq "UpdateWithActiveSetup") {
+    # Logon-Mechanismus registrieren: bestehende Benutzerprofile erhalten das Update
+    # beim naechsten Logon im Benutzerkontext; neue Profile ueber Provisioning.
+    & $registerScript -RepoBase $RepoBase -LogonScriptPath $logonScript
+}
 
-Write-Output "Client-Deployment abgeschlossen (Script v$ScriptVersion). Provisioning ausgefuehrt und Logon-Mechanismus registriert."
+if ($DeploymentMode -eq "UpdateWithActiveSetup") {
+    Write-Output "Client-Deployment abgeschlossen (Script v$ScriptVersion). Provisioning ausgefuehrt und Logon-Mechanismus registriert."
+}
+else {
+    Write-Output "Client-Deployment abgeschlossen (Script v$ScriptVersion). Lokale Neuinstallation (Provisioned Packages) wurde ausgefuehrt, ohne Active Setup."
+}
