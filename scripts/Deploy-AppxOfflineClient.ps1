@@ -8,12 +8,12 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("UpdateWithActiveSetup", "LocalReinstall")]
-    [string]$DeploymentMode = "UpdateWithActiveSetup"
+    [string]$DeploymentMode = "LocalReinstall"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.2.0"
+$ScriptVersion = "1.3.0"
 $ExpectedCsvSchemaVersion = "2.0"
 
 $CsvPath = Join-Path $RepoBase "AppVersions.csv"

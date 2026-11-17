@@ -17,8 +17,8 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.1.0"
-$SolutionVersion = "1.1.0"
+$ScriptVersion = "1.3.0"
+$SolutionVersion = "1.3.0"
 $CsvSchemaVersion = "2.0"
 
 # ==============================================================================
@@ -230,7 +230,7 @@ if ($csvData.Count -gt 0) {
         generatedAt = (Get-Date).ToString("o")
         scripts = [ordered]@{
             sync = $ScriptVersion
-            deployClient = "1.1.0"
+            deployClient = "1.3.0"
             registerLogon = "1.1.0"
             invokeLogon = "1.1.0"
         }

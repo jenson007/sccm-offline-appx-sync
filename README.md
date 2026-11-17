@@ -5,7 +5,7 @@ Umgebungen ueber ein zentrales Repository und SCCM.
 
 ## Versionierung
 
-- **Solution Version:** `1.1.0` (in `SolutionMetadata.json`)
+- **Solution Version:** `1.3.0` (in `SolutionMetadata.json`)
 - **CSV-Schema:** `2.0` (in `SolutionMetadata.json` und je CSV-Zeile als
   `CsvSchemaVersion`)
 - **Script Versionen:** in jedem Skript als `$ScriptVersion`
@@ -27,10 +27,10 @@ Meldung ab; das Logon-Skript beendet sich ohne Eingriff.
   - Filtert nur `Status=Success` und valide Versionen.
   - Nutzt robuste Paketzuordnung ueber CSV-Felder (`FileName`, `AppId`).
   - Unterstuetzt zwei Modi:
-    - `UpdateWithActiveSetup` (Standard): versionierte Aktualisierung plus
+    - `LocalReinstall` (Standard): lokale Neuinstallation der provisioned
+      Packages ohne Active Setup.
+    - `UpdateWithActiveSetup`: versionierte Aktualisierung plus
       Active-Setup-Registrierung.
-    - `LocalReinstall`: lokale Neuinstallation der provisioned Packages ohne
-      Active Setup.
 - `scripts/Register-AppxLogonUpdater.ps1`
   - Registriert einen Active-Setup-Eintrag unter HKLM.
   - Versioniert ueber Solution-Version + CSV-Hash, damit bestehende User pro
@@ -72,10 +72,10 @@ diesen Trigger beim naechsten Anmelden.
 .\scripts\Deploy-AppxOfflineClient.ps1 -RepoBase "\\Server\Share\WindowsAppUpdates"
 ```
 
-Alternativ lokale Neuinstallation ohne Active Setup:
+Alternativ explizite Aktualisierung mit Active Setup:
 
 ```powershell
-.\scripts\Deploy-AppxOfflineClient.ps1 -RepoBase "\\Server\Share\WindowsAppUpdates" -DeploymentMode LocalReinstall
+.\scripts\Deploy-AppxOfflineClient.ps1 -RepoBase "\\Server\Share\WindowsAppUpdates" -DeploymentMode UpdateWithActiveSetup
 ```
 
 3. Benutzer erhalten Updates:
